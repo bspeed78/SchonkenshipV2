@@ -2,8 +2,6 @@
 
 A modern Battleship game with an AI opponent that uses strategic reasoning for ship placement and attacks.
 
-![Schonkenshipv2 Game](https://example.com/schonkenship-screenshot.png)
-
 ## Overview
 
 Schonkenshipv2 is a web-based implementation of the classic Battleship game, featuring an intelligent AI opponent. The game offers an interactive naval combat experience with a clean, modern UI and strategic gameplay.
