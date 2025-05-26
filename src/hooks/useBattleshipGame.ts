@@ -89,7 +89,7 @@ export function useBattleshipGame() {
       const newShip: Ship = {
         id: `player_${shipDef.id}`,
         definitionId: shipDef.id,
-        // definition: shipDef, // Store full definition for convenience // definition is added in processAttack and mapAiPlacedShipsToPlayerBoardState
+        definition: shipDef,
         coordinates: shipCoordinates,
         hits: [],
         isSunk: false,
@@ -124,7 +124,7 @@ export function useBattleshipGame() {
         const newShip: Ship = {
           id: `player_${shipDef.id}`,
           definitionId: shipDef.id,
-          // definition: shipDef, // definition is added in processAttack and mapAiPlacedShipsToPlayerBoardState
+          definition: shipDef,
           coordinates: shipCoordinates,
           hits: [],
           isSunk: false,

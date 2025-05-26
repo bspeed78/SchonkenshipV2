@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -31,7 +30,60 @@ const AiOpponentShipPlacementOutputSchema = z.array(
 export type AiOpponentShipPlacementOutput = z.infer<typeof AiOpponentShipPlacementOutputSchema>;
 
 export async function aiOpponentShipPlacement(input: AiOpponentShipPlacementInput): Promise<AiOpponentShipPlacementOutput> {
-  return aiOpponentShipPlacementFlow(input);
+  try {
+    return await aiOpponentShipPlacementFlow(input);
+  } catch (error) {
+    console.warn('AI ship placement failed, using fallback random placement:', error);
+    return generateFallbackShipPlacement(input);
+  }
+}
+
+function generateFallbackShipPlacement(input: AiOpponentShipPlacementInput): AiOpponentShipPlacementOutput {
+  const placements: AiOpponentShipPlacementOutput = [];
+  const occupiedCells = new Set<string>();
+  
+  for (const shipSize of input.shipSizes) {
+    let placed = false;
+    let attempts = 0;
+    
+    while (!placed && attempts < 100) {
+      const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+      const maxRow = orientation === 'vertical' ? input.gridSize - shipSize : input.gridSize - 1;
+      const maxCol = orientation === 'horizontal' ? input.gridSize - shipSize : input.gridSize - 1;
+      
+      const row = Math.floor(Math.random() * (maxRow + 1));
+      const col = Math.floor(Math.random() * (maxCol + 1));
+      
+      let valid = true;
+      const cellsToCheck: string[] = [];
+      
+      for (let i = 0; i < shipSize; i++) {
+        const cellRow = orientation === 'vertical' ? row + i : row;
+        const cellCol = orientation === 'horizontal' ? col + i : col;
+        const cellKey = `${cellRow},${cellCol}`;
+        
+        if (occupiedCells.has(cellKey)) {
+          valid = false;
+          break;
+        }
+        cellsToCheck.push(cellKey);
+      }
+      
+      if (valid) {
+        cellsToCheck.forEach(cell => occupiedCells.add(cell));
+        placements.push({ row, col, length: shipSize, orientation });
+        placed = true;
+      }
+      
+      attempts++;
+    }
+    
+    if (!placed) {
+      throw new Error(`Failed to place ship of size ${shipSize} after 100 attempts`);
+    }
+  }
+  
+  return placements;
 }
 
 const aiOpponentShipPlacementPrompt = ai.definePrompt({
@@ -88,12 +140,9 @@ const aiOpponentShipPlacementFlow = ai.defineFlow(
     if (!output) {
         throw new Error("AI opponent ship placement flow did not return output.");
     }
-    // Basic validation
     if (output.length !== input.shipSizes.length) {
         throw new Error(`AI did not place the correct number of ships. Expected ${input.shipSizes.length}, got ${output.length}`);
     }
-    // Further validation (overlap, bounds, correct lengths) should be done by the caller or a separate validation step.
     return output;
   }
 );
-

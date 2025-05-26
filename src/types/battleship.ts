@@ -15,6 +15,7 @@ export interface ShipDefinition {
 export interface Ship {
   id: string; // Unique instance ID, e.g., 'player_carrier'
   definitionId: string; // References ShipDefinition.id
+  definition?: ShipDefinition; // Full definition for convenience
   coordinates: Coordinate[];
   hits: Coordinate[]; // Coordinates that have been hit on this ship
   isSunk: boolean;

@@ -111,7 +111,7 @@ export function processAttack(
     hitShipDefId = hitShip.definitionId;
     newBoard[attackCoord.y][attackCoord.x] = 'hit';
 
-    if (hitShip.hits.length === hitShip.definition.size) {
+    if (hitShip.hits.length === (hitShip.definition?.size || SHIP_DEFINITIONS.find(def => def.id === hitShip.definitionId)?.size || 0)) {
       hitShip.isSunk = true;
       attackResult = 'sunk';
       hitShip.coordinates.forEach(coord => {
@@ -162,6 +162,7 @@ export function mapAiPlacedShipsToPlayerBoardState(aiPlacements: PlacedShipFromA
     const newShip: Ship = {
       id: `ai_${matchingDef.id}`,
       definitionId: matchingDef.id,
+      definition: matchingDef,
       coordinates: shipCoords,
       hits: [],
       isSunk: false,
