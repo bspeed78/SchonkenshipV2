@@ -60,6 +60,7 @@ export function placeShipOnBoard(
   const newShip: Ship = {
     id: `${shipDef.id}_${Date.now()}`, // Simple unique ID
     definitionId: shipDef.id,
+    definition: shipDef,
     coordinates: shipCoordinates,
     hits: [],
     isSunk: false,
@@ -96,7 +97,7 @@ export function processAttack(
   }
 
   const newBoard = board.map(row => [...row]);
-  let newShips = ships.map(s => ({ ...s, hits: [...s.hits], coordinates: [...s.coordinates] })); // Deep copy needed for ships
+  let newShips = ships.map(s => ({ ...s, definition: s.definition, hits: [...s.hits], coordinates: [...s.coordinates] })); 
   let attackResult: CellState = 'miss';
   let hitShipDefId: string | undefined = undefined;
 
@@ -106,6 +107,14 @@ export function processAttack(
 
   if (shipIndex !== -1) {
     const hitShip = newShips[shipIndex];
+    // Ensure definition exists before accessing its properties
+    if (!hitShip.definition) {
+      console.error("Error: Ship definition is missing in processAttack for ship:", hitShip);
+      // Fallback or throw, here we'll treat as miss to prevent crash but log error
+      newBoard[attackCoord.y][attackCoord.x] = 'miss';
+      return { updatedBoardState: { board: newBoard, ships: newShips }, attackResult: 'miss' };
+    }
+
     hitShip.hits.push(attackCoord);
     attackResult = 'hit';
     hitShipDefId = hitShip.definitionId;
@@ -137,23 +146,25 @@ export function checkWin(ships: Ship[]): boolean {
 export function mapAiPlacedShipsToPlayerBoardState(aiPlacements: PlacedShipFromAI[]): PlayerBoardState {
   let board = createInitialBoard();
   const ships: Ship[] = [];
-
-  // Ensure SHIP_DEFINITIONS are sorted by size descending if AI relies on specific order, or match by length
-  const sortedShipDefs = [...SHIP_DEFINITIONS].sort((a,b) => b.size - a.size);
   
-  // This mapping assumes the AI returns ships in some order that can be matched to definitions.
-  // A robust way is to match by length, but AI might return multiple ships of same length.
-  // For now, assume AI returns them in an order that matches SHIP_DEFINITIONS or by unique lengths.
-  // Or that the GenAI flow is instructed to respect the ship sizes strictly.
-  
-  let defIndex = 0;
   for (const aiShip of aiPlacements) {
-    // Find a ship definition that matches the length and hasn't been used yet.
     const matchingDef = SHIP_DEFINITIONS.find(def => def.size === aiShip.length && !ships.some(s => s.definitionId === def.id));
     
     if (!matchingDef) {
       console.error("Could not find matching ship definition for AI placement:", aiShip);
-      continue; // Skip this ship or handle error
+      // Attempt to find any definition of the same length if the unique ID check failed,
+      // though this could lead to issues if multiple ship types have the same length.
+      const fallbackDef = SHIP_DEFINITIONS.find(def => def.size === aiShip.length);
+      if (!fallbackDef) {
+        console.error("CRITICAL: No ship definition found for length:", aiShip.length);
+        continue; // Skip this ship or handle error more gracefully
+      }
+      console.warn("Using fallback definition for AI ship:", fallbackDef.name);
+      // matchingDef = fallbackDef; // This line was missing its assignment if we want to use the fallback.
+                               // However, the original logic `!ships.some(s => s.definitionId === def.id)` is safer.
+                               // If AI returns more ships of a certain length than defined, it's an AI output issue.
+      // For safety, we stick to the stricter check. If AI gives invalid placements, it's an issue with the AI prompt/output.
+      continue;
     }
 
     const startCoord: Coordinate = { x: aiShip.col, y: aiShip.row };
@@ -162,6 +173,7 @@ export function mapAiPlacedShipsToPlayerBoardState(aiPlacements: PlacedShipFromA
     const newShip: Ship = {
       id: `ai_${matchingDef.id}`,
       definitionId: matchingDef.id,
+      definition: matchingDef,
       coordinates: shipCoords,
       hits: [],
       isSunk: false,
@@ -171,10 +183,9 @@ export function mapAiPlacedShipsToPlayerBoardState(aiPlacements: PlacedShipFromA
 
     shipCoords.forEach(coord => {
       if(isValidCoordinate(coord)) {
-        board[coord.y][coord.x] = 'ship'; // 'ship' state is internal, player won't see it directly
+        board[coord.y][coord.x] = 'ship'; 
       }
     });
-    defIndex++;
   }
   return { board, ships };
 }

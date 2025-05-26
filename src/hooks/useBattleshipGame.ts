@@ -13,10 +13,8 @@ import {
   mapAiPlacedShipsToPlayerBoardState,
   generateRandomPlacement,
 } from '@/lib/game-utils';
-import { aiOpponentShipPlacement } from '@/ai/flows/ai-opponent-ship-placement';
-import type { AiOpponentShipPlacementInput } from '@/ai/flows/ai-opponent-ship-placement';
-import { aiOpponentAttackDecision } from '@/ai/flows/ai-opponent-attack-decision';
-import type { AiOpponentAttackDecisionInput } from '@/ai/flows/ai-opponent-attack-decision';
+import { aiOpponentShipPlacement, type AiOpponentShipPlacementInput } from '@/ai/flows/ai-opponent-ship-placement';
+import { aiOpponentAttackDecision, type AiOpponentAttackDecisionInput } from '@/ai/flows/ai-opponent-attack-decision';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -89,7 +87,7 @@ export function useBattleshipGame() {
       const newShip: Ship = {
         id: `player_${shipDef.id}`,
         definitionId: shipDef.id,
-        // definition: shipDef, // Store full definition for convenience // definition is added in processAttack and mapAiPlacedShipsToPlayerBoardState
+        definition: shipDef, 
         coordinates: shipCoordinates,
         hits: [],
         isSunk: false,
@@ -124,7 +122,7 @@ export function useBattleshipGame() {
         const newShip: Ship = {
           id: `player_${shipDef.id}`,
           definitionId: shipDef.id,
-          // definition: shipDef, // definition is added in processAttack and mapAiPlacedShipsToPlayerBoardState
+          definition: shipDef,
           coordinates: shipCoordinates,
           hits: [],
           isSunk: false,
@@ -165,19 +163,11 @@ export function useBattleshipGame() {
       const aiShipSizes = SHIP_DEFINITIONS.map(s => s.size);
       const aiPlacementInput: AiOpponentShipPlacementInput = { gridSize: BOARD_SIZE, shipSizes: aiShipSizes };
       const aiPlacements = await aiOpponentShipPlacement(aiPlacementInput);
-      const aiPlayerBoardState = mapAiPlacedShipsToPlayerBoardState(aiPlacements); // Removed the mapping that caused type error
+      const aiPlayerBoardState = mapAiPlacedShipsToPlayerBoardState(aiPlacements);
       
-      // Add full definition to AI ships for consistency
-      const aiShipsWithDefs = aiPlayerBoardState.ships.map(s => {
-        const definition = SHIP_DEFINITIONS.find(def => def.id === s.definitionId);
-        if (!definition) throw new Error(`Ship definition not found for ID: ${s.definitionId}`);
-        return {...s, definition };
-      });
-
-
       setGameState(prev => ({
         ...prev,
-        aiShips: {...aiPlayerBoardState, ships: aiShipsWithDefs},
+        aiShips: aiPlayerBoardState, // aiPlayerBoardState.ships now include definitions
         phase: 'playing',
         currentPlayer: 'player',
         statusMessage: "Game started! Your turn to attack.",
@@ -239,8 +229,6 @@ export function useBattleshipGame() {
         const availableCoordinates: Coordinate[] = [];
         gameState.playerShips.board.forEach((row, y) => {
           row.forEach((cell, x) => {
-            // AI should only attack cells not previously attacked by it on player's board.
-            // This is represented by gameState.aiAttacks.board.
             if (gameState.aiAttacks.board[y][x] === 'empty') {
               availableCoordinates.push({ x, y });
             }
@@ -250,7 +238,7 @@ export function useBattleshipGame() {
         const previousAiHits: Coordinate[] = [];
         gameState.aiAttacks.board.forEach((row, y) => {
             row.forEach((cell, x) => {
-                if (cell === 'hit' || cell === 'sunk') { // Only actual hits, not just coordinates of sunk ships
+                if (cell === 'hit' || cell === 'sunk') { 
                     if (gameState.playerShips.ships.some(ship => ship.coordinates.some(c => c.x === x && c.y === y))) {
                          previousAiHits.push({x, y});
                     }
@@ -337,35 +325,3 @@ export function useBattleshipGame() {
     canDonePlacement: gameState.playerShips.ships.length === SHIP_DEFINITIONS.length,
   };
 }
-
-// Ensure Ship type has definition property, and it is populated where ships are created/processed.
-// Initial game state ships are empty arrays. Player ships get definition in placePlayerShip (implicitly, as definition is passed to processAttack etc from SHIP_DEFINITIONS).
-// AI ships get definition in mapAiPlacedShipsToPlayerBoardState.
-// The processAttack function relies on ship.definition.size.
-
-// Helper to ensure all ships in initial state have definitions if they exist (though they start empty)
-// This was problematic and not strictly necessary if definitions are added upon ship creation/processing.
-// SHIP_DEFINITIONS.forEach(def => {
-//     const playerShipToUpdate = initialGameState.playerShips.ships.find(s => s.definitionId === def.id);
-//     if(playerShipToUpdate && !playerShipToUpdate.definition) playerShipToUpdate.definition = def; // This line has type error if Ship expects definition
-//     const aiShipToUpdate = initialGameState.aiShips.ships.find(s => s.definitionId === def.id);
-//     if(aiShipToUpdate && !aiShipToUpdate.definition) aiShipToUpdate.definition = def; // This line has type error
-// });
-
-// Ensure the Ship type in battleship.ts includes the definition property
-// export interface Ship {
-//   // ... other properties
-//   definition: ShipDefinition; // Add this if not present
-// }
-
-// In game-utils.ts, when creating ships ensure `definition` is populated:
-// Example in placeShipOnBoard or mapAiPlacedShipsToPlayerBoardState:
-// const newShip: Ship = {
-//   // ...
-//   definition: shipDef, // or matchingDef
-//   // ...
-// };
-
-// In processAttack, ensure targetPlayerBoardState.ships have their definitions
-// This is crucial: if (hitShip.hits.length === hitShip.definition.size) {
-// This should already be handled if ships are constructed correctly with their definitions.
