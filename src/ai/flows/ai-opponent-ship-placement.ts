@@ -34,13 +34,18 @@ export async function aiOpponentShipPlacement(input: AiOpponentShipPlacementInpu
   return aiOpponentShipPlacementFlow(input);
 }
 
+// Internal schema for the prompt, including the derived maxCoordinate
+const AiOpponentShipPlacementPromptInternalInputSchema = AiOpponentShipPlacementInputSchema.extend({
+  maxCoordinate: z.number().describe('The maximum coordinate value (gridSize - 1).')
+});
+
 const aiOpponentShipPlacementPrompt = ai.definePrompt({
   name: 'aiOpponentShipPlacementPrompt',
-  input: {schema: AiOpponentShipPlacementInputSchema},
+  input: {schema: AiOpponentShipPlacementPromptInternalInputSchema}, // Use the internal schema
   output: {schema: AiOpponentShipPlacementOutputSchema},
   prompt: `You are an AI that strategically places ships on a grid for a game of Battleship.
 
-    The grid size is {{gridSize}}x{{gridSize}}. The grid is 0-indexed, so rows and columns go from 0 to {{gridSize - 1}}.
+    The grid size is {{gridSize}}x{{gridSize}}. The grid is 0-indexed, so rows and columns go from 0 to {{maxCoordinate}}.
     The ship sizes you must place are: {{shipSizes}}. You must place one ship for each size listed.
 
     Your goal is to place the ships in a way that makes it difficult for the opponent to find and sink them.
@@ -74,17 +79,23 @@ const aiOpponentShipPlacementPrompt = ai.definePrompt({
     ]
     Make sure the output is a valid JSON array. Adhere to the ship lengths provided. Do not place ships out of bounds. Do not overlap ships.
     Make sure ALL ships are placed exactly once. Double check your work for validity and adherence to all constraints.
-    Do not explain your answer, only provide the JSON output.`, 
+    Do not explain your answer, only provide the JSON output.`,
 });
 
 const aiOpponentShipPlacementFlow = ai.defineFlow(
   {
     name: 'aiOpponentShipPlacementFlow',
-    inputSchema: AiOpponentShipPlacementInputSchema,
+    inputSchema: AiOpponentShipPlacementInputSchema, // Flow input is the original schema
     outputSchema: AiOpponentShipPlacementOutputSchema,
   },
-  async input => {
-    const {output} = await aiOpponentShipPlacementPrompt(input);
+  async (input: AiOpponentShipPlacementInput) => { // Explicitly type input here for clarity
+    const maxCoordinate = input.gridSize - 1;
+    const promptInput = {
+      ...input,
+      maxCoordinate,
+    };
+
+    const {output} = await aiOpponentShipPlacementPrompt(promptInput); // Pass the augmented input
     if (!output) {
         throw new Error("AI opponent ship placement flow did not return output.");
     }
