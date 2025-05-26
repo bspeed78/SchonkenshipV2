@@ -184,7 +184,7 @@ export function generateRandomPlacement(shipDef: ShipDefinition, existingShips: 
   const orientations: ('horizontal' | 'vertical')[] = ['horizontal', 'vertical'];
   const triedPositions: Set<string> = new Set();
 
-  for (let attempts = 0; attempts < 100; attempts++) { // Try 100 times
+  for (let attempts = 0; attempts < 1000; attempts++) { // Try 1000 times
     const orientation = orientations[Math.floor(Math.random() * orientations.length)];
     const randX = Math.floor(Math.random() * BOARD_SIZE);
     const randY = Math.floor(Math.random() * BOARD_SIZE);
