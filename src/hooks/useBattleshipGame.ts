@@ -167,7 +167,7 @@ export function useBattleshipGame() {
       
       setGameState(prev => ({
         ...prev,
-        aiShips: aiPlayerBoardState, // aiPlayerBoardState.ships now include definitions
+        aiShips: aiPlayerBoardState, 
         phase: 'playing',
         currentPlayer: 'player',
         statusMessage: "Game started! Your turn to attack.",
@@ -227,21 +227,19 @@ export function useBattleshipGame() {
     if (gameState.phase === 'playing' && gameState.currentPlayer === 'ai' && !gameState.winner && gameState.isAiThinking) {
       const performAiAttack = async () => {
         const availableCoordinates: Coordinate[] = [];
-        gameState.playerShips.board.forEach((row, y) => {
+        gameState.aiAttacks.board.forEach((row, y) => { // Iterate AI's attack board
           row.forEach((cell, x) => {
-            if (gameState.aiAttacks.board[y][x] === 'empty') {
+            if (cell === 'empty') { // An 'empty' cell on AI's attack board is an available target on player's board
               availableCoordinates.push({ x, y });
             }
           });
         });
 
-        const previousAiHits: Coordinate[] = [];
+        const activeHits: Coordinate[] = [];
         gameState.aiAttacks.board.forEach((row, y) => {
             row.forEach((cell, x) => {
-                if (cell === 'hit' || cell === 'sunk') { 
-                    if (gameState.playerShips.ships.some(ship => ship.coordinates.some(c => c.x === x && c.y === y))) {
-                         previousAiHits.push({x, y});
-                    }
+                if (cell === 'hit') { // Only consider 'hit' cells, not 'sunk' or 'miss'
+                    activeHits.push({x, y});
                 }
             });
         });
@@ -250,9 +248,16 @@ export function useBattleshipGame() {
             row.map(cell => cell === 'empty' ? '?' : cell)
         );
 
+        if (availableCoordinates.length === 0) {
+            // This should ideally be caught by win/loss condition earlier
+            console.warn("AI has no available coordinates to attack, but it's AI's turn.");
+            setGameState(prev => ({ ...prev, currentPlayer: 'player', statusMessage: "No moves for AI. Your turn.", isAiThinking: false }));
+            return;
+        }
+
         const aiInput: AiOpponentAttackDecisionInput = {
           boardSize: BOARD_SIZE,
-          previousHits: previousAiHits,
+          previousHits: activeHits, // Pass only active 'hit' cells
           opponentBoardState: opponentBoardStateForAI,
           availableCoordinates,
         };
@@ -325,3 +330,4 @@ export function useBattleshipGame() {
     canDonePlacement: gameState.playerShips.ships.length === SHIP_DEFINITIONS.length,
   };
 }
+
