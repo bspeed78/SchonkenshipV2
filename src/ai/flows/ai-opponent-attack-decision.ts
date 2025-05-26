@@ -53,9 +53,17 @@ export async function aiOpponentAttackDecision(
   return aiOpponentAttackDecisionFlow(input);
 }
 
+// Internal schema for the prompt, with opponentBoardState as string[]
+const AiOpponentAttackDecisionPromptInternalInputSchema = AiOpponentAttackDecisionInputSchema.extend({
+    opponentBoardState: z
+    .array(z.string())
+    .describe('The current state of the opponent\'s board, with each string representing a pre-joined row.'),
+});
+
+
 const aiOpponentAttackDecisionPrompt = ai.definePrompt({
   name: 'aiOpponentAttackDecisionPrompt',
-  input: {schema: AiOpponentAttackDecisionInputSchema},
+  input: {schema: AiOpponentAttackDecisionPromptInternalInputSchema}, // Use internal schema
   output: {schema: AiOpponentAttackDecisionOutputSchema},
   prompt: `You are an AI opponent in a battleship game. Your goal is to sink all of the human player's ships.
 
@@ -69,7 +77,7 @@ Board Size: {{boardSize}}
 Previous Hits on Opponent: {{previousHits}}
 Opponent Board State (Your view: '?' for unknown, 'hit', 'miss', 'sunk'):
 {{#each opponentBoardState}}
-  {{this.join ' '}}
+  {{this}}
 {{/each}}
 Available Coordinates to Attack: {{availableCoordinates}}
 
@@ -85,11 +93,17 @@ ${JSON.stringify({
 const aiOpponentAttackDecisionFlow = ai.defineFlow(
   {
     name: 'aiOpponentAttackDecisionFlow',
-    inputSchema: AiOpponentAttackDecisionInputSchema,
+    inputSchema: AiOpponentAttackDecisionInputSchema, // Flow input is the original schema
     outputSchema: AiOpponentAttackDecisionOutputSchema,
   },
-  async input => {
-    const {output} = await aiOpponentAttackDecisionPrompt(input);
+  async (input: AiOpponentAttackDecisionInput) => { // Explicitly type input
+    const formattedBoardState = input.opponentBoardState.map(row => row.join(' '));
+    const promptInput = {
+      ...input,
+      opponentBoardState: formattedBoardState,
+    };
+
+    const {output} = await aiOpponentAttackDecisionPrompt(promptInput); // Pass the augmented input
     if (!output) {
       throw new Error("AI opponent attack decision flow did not return output.");
     }
@@ -112,3 +126,4 @@ const aiOpponentAttackDecisionFlow = ai.defineFlow(
     return output;
   }
 );
+
